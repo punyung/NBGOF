@@ -215,7 +215,7 @@ nb.gof.m = function(counts, x, lib.sizes=colSums(counts, na.rm = TRUE), sim=999,
     ncores = detectCores() - 1
   }
   # register for foreach
-  registerDoMC(ncores)
+  #registerDoMC(ncores)
   
   # keep only complete cases:
   counts = counts[complete.cases(counts), ]
