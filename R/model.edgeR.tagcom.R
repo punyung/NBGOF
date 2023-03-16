@@ -52,7 +52,7 @@
 #' 
 model.edgeR.tagcom = function(counts, x, lib.sizes=colSums(counts), prior.df = prior.df, method=method){
   
-  grp.ids = factor(apply(x, 1, function(x){paste(rev(x), collapse = ".")}), 
+  grp.ids = factor(apply(x, 1, function(x){paste(rev(x), collapse = ".")}),  # 为每个样本生成一个ID
                    labels = seq(ncol(x)))
   
   ## edgeR tagwise-common dispersion:
@@ -66,7 +66,8 @@ model.edgeR.tagcom = function(counts, x, lib.sizes=colSums(counts), prior.df = p
   e.com = estimateGLMCommonDisp(y=counts, design=x, verbose=FALSE, method=method)
   e.tgc = estimateGLMTagwiseDisp(y=counts, design=x, offset=log(lib.sizes), dispersion=e.com, prior.df = prior.df, trend=FALSE)
   # e.tag: trend is FALSE since we didn't use estimateGLMTrendedDisp() beforehand
-  tgc.fit = glmFit(y=counts, design=x, dispersion=e.tgc$tagwise.dispersion)
+  #tgc.fit = glmFit(y=counts, design=x, dispersion=e.tgc$tagwise.dispersion)
+  tgc.fit = glmFit(y=counts, design=x, dispersion=e.tgc)
   
   # extract quantities:
   mu.hat.m = tgc.fit$fitted.values   # mu may be close to 0
@@ -79,6 +80,7 @@ model.edgeR.tagcom = function(counts, x, lib.sizes=colSums(counts), prior.df = p
   res.m[ is.infinite(res.m) ] = 0
   
   # sort res.m with care!
+  sort.vec = function(x, grp.ids)  ave(x, grp.ids, FUN = sort)
   res.om = t(apply(res.m, 1, sort.vec, grp.ids)) 
   ord.res.v = as.vector(t(res.om))
   
