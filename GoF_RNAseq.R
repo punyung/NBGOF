@@ -340,6 +340,7 @@ cts_glm <- edgeRdispersion(cts_sub,batch,group_sub)
 cts_glm_GOF <- estNBparams(cts_sub,design)
 
 # GOF test: AIC
+#Quasi-Negative Binomial model
 QNBD<- function(x,theta,beta,log = FALSE){
   
   loglik <- log((((beta-1)/(beta-1+beta*x))*(factorial(beta-1+beta*x))/
@@ -357,6 +358,6 @@ QNBD<- function(x,theta,beta,log = FALSE){
   return(density)
   
 }
-cts_para <- maxlogL(sim_counts_5,dist="QNBD")
+cts_para <- maxlogL(cts_sub,dist="QNBD")
 summary(cts_para)
 
