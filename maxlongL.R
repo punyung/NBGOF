@@ -105,7 +105,7 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
   nnum <- sapply(1:length(arguments), FUN = function(x) is.numeric(arguments[[x]])) # 判断参数是否为numeric
   nsym <- sapply(1:length(arguments), FUN = function(x) is.symbol(arguments[[x]])) # 判断参数是否为symbol
   npar <- length(nnum[nnum == TRUE]) + length(nsym[nsym == TRUE]) - 1 # 参数为numeric和symbol的数量相加再减1
-  ll <- minus_lL(x = x, dist, dist_args = arguments, over = link$over, 
+  ll <- minus_lL(x = x, dist, dist_args = arguments, over = link$over, # 给定分布和参数下的数据的负对数似然值
                  link = link$fun, npar = npar, fixed = fixed)
   
   
@@ -121,7 +121,7 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
                         dist_args = arguments, npar = npar, link_fun = link$fun)
   }
   fit <- NULL
-  if (optimizer == "nlminb") {
+  if (optimizer == "nlminb") { # 无约束或有界约束的非线性优化算法
     nlminbcontrol <- control
     nlminb_fit <- nlminb(start = start, objective = ll, 
                          lower = lower, upper = upper, control = nlminbcontrol, 
@@ -129,16 +129,18 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
     fit$par <- nlminb_fit$par
     fit$objective <- -nlminb_fit$objective
   }
-  else if (optimizer == "optim") {
+  else if (optimizer == "optim") { # 梯度下降
     optimcontrol <- control
     if (npar < 2) 
-      optim_fit <- optim(par = start, fn = ll, lower = lower, 
+      optim_fit <- optim(par = start, fn = ll, lower = lower, # control参数足以进行优化
                          upper = upper)
     optim_fit <- optim(par = start, fn = ll, control = optimcontrol, 
                        ...)
     fit$par <- optim_fit$par
     fit$objective <- -optim_fit$value
   }
+  
+  
   else if (optimizer == "DEoptim") {
     if (is.null(lower) | is.null(upper)) 
       stop("'lower' and 'upper'\n                                               limits must be defined\n                                               for 'DEoptim' optimizer", 
@@ -156,6 +158,8 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
     fit$par <- as.numeric(DE_fit$optim$bestmem)
     fit$objective <- -DE_fit$optim$bestval
   }
+  
+  
   else if (optimizer == "ga") {
     if (is.null(lower) | is.null(upper)) 
       stop("'lower' and 'upper'\n                                               limits must be defined\n                                               for 'GA::ga' optimizer", 
@@ -174,16 +178,25 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
     fit$par <- as.numeric(ga_fit@solution)
     fit$objective <- ga_fit@fitnessValue
   }
+  
+  
   else {
-    fit <- do.call(optimizer, c(list(fn, lower, upper, start, 
+    fit <- do.call(optimizer, c(list(fn, lower, upper, start, # 使用 do.call() 函数动态调用用户指定的优化算法
                                      control, ...)))
   }
-  fit$par <- link_apply(values = fit$par, over = link$over, 
+  
+  
+  fit$par <- link_apply(values = fit$par, over = link$over, # 将估计的参数经过反函数(link$fun的反函数)进行转换，
+                                                            # 以获得实际参数的估计值
                         dist_args = arguments, npar = npar, link_fun = link$fun)
-  StdE_method <- match.arg(StdE_method, c("optim", "numDeriv"))
+  # 将StdE_method设置为可接受的值，即在"optim"和"numDeriv"中进行选择。如果StdE_method不是这两个值之一，则会抛出错误。
+  StdE_method <- match.arg(StdE_method, c("optim", "numDeriv")) # 计算参数估计的标准误
   ll.noLink <- try(minus_lL(x = x, dist, dist_args = arguments, 
-                            over = NULL, link = NULL, npar = npar, fixed = fixed), 
+                            over = NULL, link = NULL, npar = npar, fixed = fixed),  # 计算没有link 函数下的，负对数似然值
                    silent = TRUE)
+  
+  
+  # 计算最大似然估计的参数的标准误差
   if (StdE_method == "optim") {
     fit$hessian <- try(optim(par = fit$par, fn = ll.noLink, 
                              method = "L-BFGS-B", lower = fit$par - 0.5 * fit$par, 
@@ -191,21 +204,29 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
                        silent = TRUE)
     StdE_computation <- "Hessian from optim"
   }
-  if (any(is.na(fit$hessian) | is.error(fit$hessian)) | any(is.character(fit$hessian)) | 
-      StdE_method == "numDeriv") {
+  
+  #
+  if (any(is.na(fit$hessian) | is.error(fit$hessian)) | any(is.character(fit$hessian)) |  # 判断是否能用Hessian矩阵计算模型标准误
+      StdE_method == "numDeriv") { # 如果不行，则用数值微分计算Hessian矩阵
     fit$hessian <- try(numDeriv::hessian(ll.noLink, fit$par), 
                        silent = TRUE)
     StdE_computation <- "numDeriv::hessian"
   }
+  
+  #判断Hessian矩阵是否包含缺失值、字符变量
   if (any(is.na(fit$hessian) | is.error(fit$hessian)) | any(is.character(fit$hessian))) {
     StdE_computation <- paste0("'", StdE_method, "' failed")
-    fit$hessian <- NA
+    fit$hessian <- NA # hessian矩阵计算不成功
     fit$StdE <- NA
   }
+  
+  
   else {
-    fit$StdE <- sqrt(diag(solve(fit$hessian)))
+    # 计算出HEssian矩阵之后，参数标准误差为hessian矩阵逆矩阵对角线元素的平方根
+    fit$StdE <- sqrt(diag(solve(fit$hessian))) 
   }
-  names_numeric <- rep("", times = npar)
+  
+  names_numeric <- rep("", times = npar) # 提取参数的名称
   j <- 1
   for (i in 1:length(arguments)) {
     if (is.numeric(arguments[[i]]) || is.symbol(arguments[[i]])) {
@@ -213,6 +234,8 @@ function (x, dist = "dnorm", fixed = NULL, link = NULL, start = NULL,
       j <- j + 1
     }
   }
+  
+  # 将输入参数、输出参数整合成一个名为‘result’列表
   names_numeric <- names_numeric[-which(names_numeric == "x")]
   names(fit$par) <- names_numeric
   inputs <- list(call = call, dist = dist, fixed = fixed, 
