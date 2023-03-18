@@ -360,4 +360,13 @@ QNBD<- function(x,theta,beta,log = FALSE){
 }
 cts_para <- maxlogL(cts_sub,dist="QNBD")
 summary(cts_para)
-
+# 直接计算Poisson分布似然函数
+poisson_loglik <- function(lambda, x) {
+  sum(dpois(x, lambda, log = TRUE))
+}
+# 用最大似然方法估计lambda参数
+fit <- optim(par = 1, fn = poisson_loglik, x = cts_sub, lower = 0)
+lambda_hat <- fit$par
+# 计算负二项分布
+# 模型的对数似然函数值
+logLik_value <- logLik(model_fit)$value
